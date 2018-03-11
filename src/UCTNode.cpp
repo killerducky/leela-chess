@@ -35,6 +35,7 @@
 #include "Position.h"
 #include "Parameters.h"
 #include "Movegen.h"
+#include "UCI.h"
 #include "UCTNode.h"
 #include "UCTSearch.h"
 #include "Utils.h"
@@ -337,6 +338,17 @@ UCTNode& UCTNode::get_best_root_child(Color color) {
                               NodeComp(color))->get());
 }
 
+size_t UCTNode::count_nodes() const {
+    auto nodecount = size_t{0};
+    if (m_has_children) {
+        nodecount += m_children.size();
+        for (auto& child : m_children) {
+            nodecount += child->count_nodes();
+        }
+    }
+    return nodecount;
+}
+
 UCTNode* UCTNode::get_first_child() const {
     if (m_children.empty()) {
         return nullptr;
@@ -346,4 +358,25 @@ UCTNode* UCTNode::get_first_child() const {
 
 const std::vector<UCTNode::node_ptr_t>& UCTNode::get_children() const {
     return m_children;
+}
+
+UCTNode::node_ptr_t UCTNode::find_new_root(BoardHistory&& old_bh, BoardHistory&& new_bh) {
+    // Look for a key match by searching UCTSearch's old_bh.
+    // NOTE: LZ looks at new_bh's history,
+    // but shallow_clone doesn't include states which has the move.
+    // TODO: Is it necessary to do all these shallow_clones?
+    UCTNode::node_ptr_t new_root = nullptr;
+    for (auto& node : m_children) {
+        auto tmp_bh = old_bh.shallow_clone();
+        tmp_bh.do_move(node->get_move());
+        std::string tmp = UCI::move(node->get_move());
+        myprintf("debug this key:0x%lx move:%s\n", tmp_bh.cur().key(), tmp.c_str());
+        if (tmp_bh.cur().key() == new_bh.cur().key()) {
+            myprintf("debug match\n");
+            new_root = std::move(node);
+            break;
+        }
+    }
+
+    return new_root;
 }
