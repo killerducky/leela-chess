@@ -49,14 +49,14 @@ LimitsType Limits;
 
 UCTSearch::UCTSearch(BoardHistory&& bh)
     : bh_(std::move(bh)) {
-    set_playout_limit(cfg_max_playouts);
-    set_visit_limit(cfg_max_visits);
-    m_root = std::make_unique<UCTNode>(MOVE_NONE, 0.0f, 0.5f);
+        set_playout_limit(cfg_max_playouts);
+        set_visit_limit(cfg_max_visits);
+        m_root = std::make_unique<UCTNode>(MOVE_NONE, 0.0f, 0.5f);
 
-}
+    }
 
 void UCTSearch::set_quiet(bool quiet) {
-  quiet_ = quiet;
+    quiet_ = quiet;
 }
 
 SearchResult UCTSearch::play_simulation(BoardHistory& bh, UCTNode* const node) {
@@ -116,10 +116,10 @@ void UCTSearch::dump_stats(BoardHistory& state, UCTNode& parent) {
         std::string pvstring(tmp);
 
         myprintf("%4s -> %7d (V: %5.2f%%) (N: %5.2f%%) PV: ",
-            tmp.c_str(),
-            node->get_visits(),
-            node->get_eval(color)*100.0f,
-            node->get_score() * 100.0f);
+                tmp.c_str(),
+                node->get_visits(),
+                node->get_eval(color)*100.0f,
+                node->get_score() * 100.0f);
 
         StateInfo si;
         state.cur().do_move(node->get_move(), si);
@@ -152,16 +152,16 @@ Move UCTSearch::get_best_move() {
 
     // should we consider resigning?
     /*
-    float bestscore = m_root->get_first_child()->get_eval(color);
-    int visits = m_root->get_visits();
+       float bestscore = m_root->get_first_child()->get_eval(color);
+       int visits = m_root->get_visits();
     // bad score and visited enough
     if (bestscore < ((float)cfg_resignpct / 100.0f)
-        && visits > 500
-        && m_rootstate.game_ply() > cfg_min_resign_moves) { //--set cfg_min_resign_moves very high to forbid resigning...?
-        myprintf("Score looks bad. Resigning.\n");
-        bestmove = MOVE_NONE; //--i guess MOVE_NONE will mean resign.
+    && visits > 500
+    && m_rootstate.game_ply() > cfg_min_resign_moves) { //--set cfg_min_resign_moves very high to forbid resigning...?
+    myprintf("Score looks bad. Resigning.\n");
+    bestmove = MOVE_NONE; //--i guess MOVE_NONE will mean resign.
     }
-    */
+     */
 
     return bestmove;
 }
@@ -204,7 +204,7 @@ void UCTSearch::dump_analysis(int64_t elapsed, bool force_output) {
     // same for nodes to depth, assume nodes = 1.8 ^ depth.
     int   depth = log(float(m_nodes)) / log(1.8);
     auto visits = m_root->get_visits();
-    printf("info depth %d nodes %d nps %lld score cp %d winrate %5.2f%% time %lld pv %s\n",
+    myprintf_so("info depth %d nodes %d nps %lld score cp %d winrate %5.2f%% time %lld pv %s\n",
              depth, visits, 1000 * visits / (elapsed + 1),
              cp, winrate, elapsed, pvstring.c_str());
 }
