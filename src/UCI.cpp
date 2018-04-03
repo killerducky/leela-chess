@@ -182,8 +182,10 @@ void generate_training_games(istringstream& is) {
     fs::create_directories(dir);
     myprintf_so("Created dirs %s\n", dir.string().c_str());
   }
+  auto chunker_v1 = OutputChunker{dir.string() + "/training_v1", true};
   auto chunker = OutputChunker{dir.string() + "/training", true};
   for (int64_t i = 0; i < num_games; i++) {
+    Training::dump_training(play_one_game(), chunker_v1);
     Training::dump_training_v2(play_one_game(), chunker);
   }
 }
