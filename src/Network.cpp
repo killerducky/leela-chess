@@ -946,7 +946,8 @@ Network::Netresult Network::get_scored_moves(const BoardHistory& pos, DebugRawDa
     }
 
     NNPlanes planes;
-    gather_features(pos, planes);
+    // Set use_v1_oldflip=true so the game is identical
+    gather_features(pos, planes, true);
     result = get_scored_moves_internal(pos, planes, debug_data);
 
     // Insert result into cache.
@@ -1055,7 +1056,7 @@ void addPieces(const Position* pos, Color side, Network::NNPlanes& planes, int p
   }
 }
 
-void Network::gather_features(const BoardHistory& bh, NNPlanes& planes) {
+void Network::gather_features(const BoardHistory& bh, NNPlanes& planes, bool use_v1_oldflip) {
     Color us = bh.cur().side_to_move();
     Color them = ~us;
     const Position* pos = &bh.cur();
@@ -1073,13 +1074,16 @@ void Network::gather_features(const BoardHistory& bh, NNPlanes& planes) {
     planes.move_count = 0;
 
     int mc = bh.positions.size() - 1;
+    bool flip = us == BLACK;
     for (int i = 0; i < std::min(T_HISTORY, mc + 1); ++i) {
         pos = &bh.positions[mc - i];
 
-        us = pos->side_to_move();
-        them = ~us;
+        if (use_v1_oldflip) {
+            us = pos->side_to_move();
+            them = ~us;
 
-        bool flip = us == BLACK;
+            flip = us == BLACK;
+        }
 
         addPieces<PAWN  >(pos, us, planes, i * 14 + 0, flip);
         addPieces<KNIGHT>(pos, us, planes, i * 14 + 1, flip);

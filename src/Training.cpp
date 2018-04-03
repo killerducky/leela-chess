@@ -106,7 +106,8 @@ void Training::record(const BoardHistory& state, Move move) {
     auto step = TimeStep{};
     step.to_move = state.cur().side_to_move();
     step.planes = Network::NNPlanes{};
-    Network::gather_features(state, step.planes);
+    // use_v1_oldflip=false so we record new history plane format
+    Network::gather_features(state, step.planes, false);
 
     step.probabilities.resize(Network::NUM_OUTPUT_POLICY);
     step.probabilities[Network::lookup(move)] = 1.0;
@@ -117,7 +118,8 @@ void Training::record(const BoardHistory& state, UCTNode& root) {
     auto step = TimeStep{};
     step.to_move = state.cur().side_to_move();
     step.planes = Network::NNPlanes{};
-    Network::gather_features(state, step.planes);
+    // use_v1_oldflip=false so we record new history plane format
+    Network::gather_features(state, step.planes, false);
 
     auto result = Network::get_scored_moves(state);
     step.net_winrate = result.second;

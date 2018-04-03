@@ -89,7 +89,7 @@ public:
                         float temperature = 1.0f);
 
     static int lookup(Move move);
-    static void gather_features(const BoardHistory& pos, NNPlanes& planes);
+    static void gather_features(const BoardHistory& pos, NNPlanes& planes, bool use_v1_oldflip);
 
 private:
     static std::pair<int, int> load_v1_network(std::ifstream& wtfile);
