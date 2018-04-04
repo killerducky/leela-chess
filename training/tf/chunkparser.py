@@ -33,8 +33,23 @@ import time
 import tensorflow as tf
 import unittest
 
-# binary version
-VERSION = struct.pack('i', 2)
+# VERSION of the training data file format
+#     1 - Text, oldflip
+#     2 - Binary, oldflip
+#     3 - Binary, newflip
+#     b'\1\0\0\0' - Invalid, see issue #119
+#
+# Note: VERSION1 does not include a version in the header, it starts with
+# text hex characters. This means any VERSION that is also a valid ASCII
+# hex string could potentially be a training file. Most of the time it
+# will be "00ff", but maybe games could get split and then there are more
+# "00??" possibilities.
+#
+# Also note "0002" is actually b'\0x30\0x30\0x30\0x32' (or maybe reversed?)
+# so it doesn't collide with VERSION2.
+#
+VERSION1 = struct.pack('i', 1)
+VERSION2 = struct.pack('i', 2)
 
 # 14*8 planes, 4 castling, 1 color, 1 50rule, 1 movecount, 1 unused
 DATA_ITEM_LINES = 121
@@ -182,7 +197,7 @@ class ChunkParser:
         winner = int(text_item[120])
         assert winner == 1 or winner == -1 or winner == 0
 
-        return True, self.v2_struct.pack(VERSION, probs, planes, us_ooo, us_oo, them_ooo, them_oo, stm, rule50_count, move_count, winner)
+        return True, self.v2_struct.pack(VERSION2, probs, planes, us_ooo, us_oo, them_ooo, them_oo, stm, rule50_count, move_count, winner)
 
 
     def convert_v2_to_tuple(self, content):
@@ -228,7 +243,7 @@ class ChunkParser:
         if chunkdata[0:4] == b'\1\0\0\0':
             # invalidated by bug see issue #119
             return
-        elif chunkdata[0:4] == VERSION:
+        elif chunkdata[0:4] == VERSION2:
             #print("V2 chunkdata")
             for i in range(0, len(chunkdata), self.v2_struct.size):
                 if self.sample > 1:
@@ -348,7 +363,7 @@ class ChunkParserTest(unittest.TestCase):
         for i in range(5):
             integer.append(np.random.randint(2))
         integer.append(np.random.randint(100))
-        integer.append(np.random.randint(255))
+        integer.append(np.random.randint(1))   # move_count is zeroed now
 
         # 2. 1924 probs
         probs = np.random.randint(9, size=1924).tolist()
@@ -395,7 +410,6 @@ class ChunkParserTest(unittest.TestCase):
         # drain parser
         for _ in batchgen:
             pass
-
 
     def v1_gen(self):
         """
