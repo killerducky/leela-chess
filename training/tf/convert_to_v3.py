@@ -22,16 +22,14 @@ import glob
 import gzip
 import itertools
 import math
-import multiprocessing as mp
 import numpy as np
 import random
-import shufflebuffer as sb
 import struct
 import sys
 import threading
 import time
-import tensorflow as tf
 import unittest
+import argparse
 
 # VERSION of the training data file format
 #     1 - Text, oldflip
@@ -52,7 +50,8 @@ VERSION1 = struct.pack('i', 1)
 VERSION2 = struct.pack('i', 2)
 
 NUM_HIST = 8
-NUM_PLANES = 14
+NUM_PIECE_TYPES = 6
+NUM_PLANES = NUM_PIECE_TYPES*2+2  # us/them pieces, rep1, rep2
 NUM_REALS = 7  # 4 castling, 1 color, 1 50rule, 1 movecount
 NUM_OUTPUTS = 2 # policy, value
 # 14*8 planes,
@@ -125,10 +124,6 @@ class TrainingStep:
                 if bit_board & (1<<(r*8+f)):
                     assert(self.history[hist].board[r][f] == ".")
                     self.history[hist].board[r][f] = piece
-                    #self.history[hist].board[r] = \
-                    #    self.history[hist].board[r][:f] + \
-                    #    piece + \
-                    #    self.history[hist].board[r][8-f:]
                     
     def describe(self):
         s = ""
@@ -150,20 +145,12 @@ class TrainingStep:
     def update_reals(self, text_item):
         self.us_ooo = int(text_item[NUM_HIST*NUM_PLANES+0])
         self.us_oo = int(text_item[NUM_HIST*NUM_PLANES+1])
-        self.them_ooo =int(text_item[NUM_HIST*NUM_PLANES+2])
+        self.them_ooo = int(text_item[NUM_HIST*NUM_PLANES+2])
         self.them_oo = int(text_item[NUM_HIST*NUM_PLANES+3])
-        self.us_black =int(text_item[NUM_HIST*NUM_PLANES+4])
+        self.us_black = int(text_item[NUM_HIST*NUM_PLANES+4])
         self.rule50_count = min(int(text_item[NUM_HIST*NUM_PLANES+5]), 255)  # TODO should be around 99-102ish
 
-    def convert_v1_to_v3(self, ply, text_item):
-        """
-            Convert v1 text format to v2 packed binary format
-
-            Converts a chess chunk of ascii text into a byte string
-            [[plane_1],[plane_2],...],...
-            [probabilities],...
-            winner,...
-        """
+    def display_v1(self, ply, text_item):
         # We start by building a list of 112 planes, each being a 8*8=64
         # element array of type np.uint8
         planes = []
@@ -195,19 +182,68 @@ class TrainingStep:
             ply+1, (ply+2)//2))
         print(self.describe())
 
-def test_hist_flip(files):
-    """
-        Test flipping history
-    """
-    for filename in files:
-        print("Parsing {}".format(filename))
+    def flip_single_v1_plane(self, plane):
+        # Split hexstring into bytes (2 ascii chars), reverse, rejoin
+        # This causes a vertical flip
+        return "".join([plane[x:x+2] for x in reversed(range(0, len(plane), 2))])
+
+    def convert_v1_to_v3(self, text_item):
+        # We start by building a list of 112 planes, each being a 8*8=64
+        # element array of type np.uint8
+        planes = []
+        us_black = int(text_item[NUM_HIST*NUM_PLANES+4])
+        for hist in range(NUM_HIST):
+            flip = hist % 2 == 1
+            if not flip:
+                us_offset = 0
+                them_offset = NUM_PIECE_TYPES
+            else:
+                # V1 had us/them wrong for odd history planes
+                us_offset = NUM_PIECE_TYPES
+                them_offset = 0
+            for offset in [us_offset, them_offset]:
+                for i in range(hist*NUM_PLANES, hist*NUM_PLANES+NUM_PIECE_TYPES):
+                    if flip:
+                        print(self.flip_single_v1_plane(text_item[i+offset]))
+                    else:
+                        print(text_item[i+offset])
+            print(text_item[hist*NUM_PLANES+NUM_PIECE_TYPES*2+0]) # rep=1
+            print(text_item[hist*NUM_PLANES+NUM_PIECE_TYPES*2+1]) # rep=2
+
+        for i in range(NUM_HIST*NUM_PLANES, DATA_ITEM_LINES):
+            print(text_item[i])
+
+def main(args):
+    for filename in args.files:
+        #print("Parsing {}".format(filename))
         with gzip.open(filename, 'rt') as f:
             lines = f.readlines()
             lines = [x.strip() for x in lines]
             for i in range(0, len(lines), DATA_ITEM_LINES):
                 text_item = lines[i:i+DATA_ITEM_LINES]
                 ts = TrainingStep()
-                ts.convert_v1_to_v3(i//DATA_ITEM_LINES, text_item)
+                if args.display:
+                    ts.display_v1(i//DATA_ITEM_LINES, text_item)
+                if args.convert:
+                    ts.convert_v1_to_v3(text_item)
 
 if __name__ == '__main__':
-    test_hist_flip(sys.argv[1:])
+    usage_str = """
+This script can parse training files and display them,
+or convert them to another format."""
+
+    parser = argparse.ArgumentParser(
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            description=usage_str)
+    parser.add_argument(
+            "--display", action="store_true",
+            help="Display a visualization of the training data")
+    parser.add_argument(
+            "--convert", action="store_true",
+            help="Convert training data to V3")
+    parser.add_argument(
+            "files", type=str, nargs="+",
+            help="Debug data files (training*.gz)")
+    args = parser.parse_args()
+
+    main(args)
